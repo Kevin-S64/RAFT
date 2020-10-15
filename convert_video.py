@@ -49,6 +49,7 @@ def viz(img, flo, i):
   cv2.waitKey()
 
 def write_vid(args):
+
   # Setup model
   model = torch.nn.DataParallel(RAFT(args))
   model.load_state_dict(torch.load(args.model))
@@ -125,7 +126,7 @@ def write_vid(args):
         flow_up = flow_up[0].permute(1,2,0).cpu().numpy()
         
         # map flow to rgb image
-        flo = flow_viz.flow_to_image(flow_up)
+        flo = flow_viz.flow_to_image(flow_up, rad_max=args.scale)
         img_flo = np.concatenate([image1, flo], axis=0)
         
         # Reframe BGR back to RGB
@@ -155,6 +156,7 @@ if __name__ == '__main__':
   parser.add_argument('--small', action='store_true', help='use small model')
   parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
   parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
+  parser.add_argument('--manual_scale', dest='scale', type=int, help='Manual scaling number (leave blank for auto scaling)', default=None)
   args = parser.parse_args()
 
   # Example argument !python3 /content/RAFT/convert_video.py --model=models/raft-sintel.pth --path=data/src_finch_174.mp4 --write_location=./
