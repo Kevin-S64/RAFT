@@ -64,6 +64,7 @@ def make_colorwheel():
     # MR
     colorwheel[col:col+MR, 2] = 255 - np.floor(255*np.arange(MR)/MR)
     colorwheel[col:col+MR, 0] = 255
+
     return colorwheel
 
 
@@ -83,22 +84,22 @@ def flow_uv_to_colors(u, v, convert_to_bgr=False):
         np.ndarray: Flow visualization image of shape [H,W,3]
     """
     flow_image = np.zeros((u.shape[0], u.shape[1], 3), np.uint8)
-    colorwheel = make_colorwheel()  # shape [55x3]
-    ncols = colorwheel.shape[0]
-    rad = np.sqrt(np.square(u) + np.square(v))
-    a = np.arctan2(-v, -u)/np.pi
-    fk = (a+1) / 2*(ncols-1)
-    k0 = np.floor(fk).astype(np.int32)
+    colorwheel = make_colorwheel()  # shape [55x3] - 55 sets of RGB values
+    ncols = colorwheel.shape[0] # 55
+    rad = np.sqrt(np.square(u) + np.square(v)) # get the magnitude, thi is big dumdub, rad stands for radius
+    a = np.arctan2(-v, -u)/np.pi # get the angle
+    fk = (a+1) / 2*(ncols-1) # -1~1 maped to 1~ncols - this is the mapping of the angle
+    k0 = np.floor(fk).astype(np.int32) # 1, 2, ..., ncols
     k1 = k0 + 1
-    k1[k1 == ncols] = 0
-    f = fk - k0
-    for i in range(colorwheel.shape[1]):
-        tmp = colorwheel[:,i]
-        col0 = tmp[k0] / 255.0
+    k1[k1 == ncols] = 0 # rewrap k1
+    f = fk - k0 # f is remainder
+    for i in range(colorwheel.shape[1]): # for each colour in the colorwheel
+        tmp = colorwheel[:,i] # mp = R,G, or B vector
+        col0 = tmp[k0] / 255.0 # get the lower and upper range (within 0-1)
         col1 = tmp[k1] / 255.0
-        col = (1-f)*col0 + f*col1
-        idx = (rad <= 1)
-        col[idx]  = 1 - rad[idx] * (1-col[idx])
+        col = (1-f)*col0 + f*col1 # properly scale the value netween the two ranges
+        idx = (rad <= 1) # all radius's less than or equal to 1 which should be all unaffected by epsillon
+        col[idx]  = 1 - rad[idx] * (1-col[idx]) # Increase saturation with radius
         col[~idx] = col[~idx] * 0.75   # out of range
         # Note the 2-i => BGR instead of RGB
         ch_idx = 2-i if convert_to_bgr else i
@@ -106,7 +107,7 @@ def flow_uv_to_colors(u, v, convert_to_bgr=False):
     return flow_image
 
 
-def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False):
+def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False, rad_max=None):
     """
     Expects a two dimensional flow image of shape.
 
@@ -124,8 +125,11 @@ def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False):
         flow_uv = np.clip(flow_uv, 0, clip_flow)
     u = flow_uv[:,:,0]
     v = flow_uv[:,:,1]
-    rad = np.sqrt(np.square(u) + np.square(v))
-    rad_max = np.max(rad)
+    rad = np.sqrt(np.square(u) + np.square(v)) 
+    # Get the max value and scale it
+    if rad_max is None:
+      rad_max = np.max(rad) 
+    
     epsilon = 1e-5
     u = u / (rad_max + epsilon)
     v = v / (rad_max + epsilon)
