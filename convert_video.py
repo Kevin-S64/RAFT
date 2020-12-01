@@ -15,6 +15,7 @@ from utils import flow_viz
 from utils.utils import InputPadder
 from google.colab.patches import cv2_imshow
 
+import pickle
 
 DEVICE = 'cuda'
 
@@ -101,6 +102,11 @@ def write_vid(args):
 
       image1 = torch.from_numpy(image1).to(DEVICE)
       
+      # Initialise lists
+      if (args.save_data):
+        flow_map = []
+        img_map = []
+
       # Main processing loop
       while(1):
         ret, frame2 = vid.read()
@@ -125,6 +131,11 @@ def write_vid(args):
         image1 = image1[0].permute(1,2,0).cpu().numpy()
         flow_up = flow_up[0].permute(1,2,0).cpu().numpy()
         
+        # Append data to a list to save later
+        if (args.save_data):
+          flow_map.append(flow_up)
+          img_map.append(image1)
+        
         # map flow to rgb image
         flo = flow_viz.flow_to_image(flow_up, rad_max=args.scale)
         img_flo = np.concatenate([image1, flo], axis=0)
@@ -145,6 +156,24 @@ def write_vid(args):
       cv2.destroyAllWindows()
       print("Video resources relieved")
       
+      # Convert data lists to pickle and save 
+      if (args.save_data):
+        flow_map = np.asarray(flow_map)
+        img_map = np.asarray(img_map)
+      
+        # Extract relevant filename
+        filename = args.path.split(".")[0].split("/")[-1]
+
+        flow_name = "{}_flow_map.pkl".format(filename)
+        img_name = "{}_img_map.pkl".format(filename)
+
+        # save
+        with open(flow_name, 'wb') as f:
+          pickle.dump(flow_map, f)
+        
+        with open(img_name, 'wb') as f:
+          pickle.dump(img_map, f)
+
       break
 
 if __name__ == '__main__':
@@ -157,6 +186,7 @@ if __name__ == '__main__':
   parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
   parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
   parser.add_argument('--manual_scale', dest='scale', type=int, help='Manual scaling number (leave blank for auto scaling)', default=None)
+  parser.add_argument('--save_data', action='store_true', help='toggle to store img and flow maps')
   args = parser.parse_args()
 
   # Example argument !python3 /content/RAFT/convert_video.py --model=models/raft-sintel.pth --path=data/src_finch_174.mp4 --write_location=./
